@@ -1,0 +1,21 @@
+/* --- Estilos de Tarjeta de Mesa --- */
+
+.card.table-card {
+  transition: all 0.2s ease-out;
+  /* ¡NUEVO! Todas las tarjetas son clickeables */
+  cursor: pointer; 
+}
+
+/* --- Efecto "Bonito" (Hover) --- */
+
+/* * ¡NUEVO! El hover se aplica a CUALQUIER tarjeta,
+ * para indicar que se puede hacer clic para editar.
+*/
+.card.table-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* * NOTA: No necesitamos las clases 'scale-105' o '.status-available'
+  * porque la selección ahora ocurre dentro de la modal.
+*/

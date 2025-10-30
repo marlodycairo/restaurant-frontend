@@ -1,0 +1,29 @@
+/* --- Estilos de Tarjeta de Mesa --- */
+
+.card {
+  /* Transición suave para el efecto hover */
+  transition: all 0.2s ease-out;
+}
+
+/* --- Efecto "Bonito" (Hover) --- */
+
+/* Solo las mesas disponibles tendrán el efecto hover y el cursor de puntero */
+.card.status-available {
+  cursor: pointer;
+}
+
+.card.status-available:hover {
+  /* Levanta la tarjeta */
+  transform: translateY(-5px);
+  /* Añade una sombra más pronunciada */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* --- Cursores para mesas no disponibles --- */
+
+.card.status-reserved,
+.card.status-occupied {
+  cursor: not-allowed;
+  /* Opcional: bajar la opacidad para que parezcan desactivadas */
+  /* opacity: 0.8; */
+}
