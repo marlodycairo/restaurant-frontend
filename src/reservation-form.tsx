@@ -1,33 +1,63 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { postReservation } from './fetch.data';
 import type { Reservation } from './interfaces/reservation';
 
-
-type InputsReservation = {
-        reservation: Reservation
+interface Props {
+  tableId: number;
+  onCreated: (res: Reservation) => void;
 }
 
-export const ReservationForm = () => {
-  const [newReservation, setNewReservation] = useState<Reservation | null>();
-  const {register, handleSubmit, formState: {errors}} = useForm<InputsReservation>();
+export const ReservationForm = ({ tableId, onCreated }: Props) => {
+  const { register, handleSubmit, reset } = useForm<Reservation>({
+    defaultValues: {
+      createdAt: new Date().toISOString(),
+      tableId: tableId,
+    },
+  });
 
-  console.log(newReservation);
+  const onSubmit = async (data: Reservation) => {
+    try {
+      const newRes = await postReservation(data);
+      onCreated(newRes);
+      reset();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
-    <>
-      <form onSubmit={handleSubmit((data) => {console.log('data form: ', data); setNewReservation(data.reservation)})}>
-        <label> Created at:</label>
-        <input {...register('reservation.createdAt',)} />
-        <label> Reservation time:</label>
-        <input {...register('reservation.reservationTime', )} />
-        <label> Customer:</label>
-        <input {...register('reservation.customerName')} />
-        {errors.reservation?.customerName && <p className='alert-danger'>{errors.reservation.customerName.message}</p>}
-        <label> Phone:</label>
-        <input {...register('reservation.phone')} />
-        <label> Table id:</label>
-        <input {...register('reservation.tableId')} />
-        <input type="submit" />
-      </form>
-    </>
-  )
-}
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <label className="form-label mt-2">Fecha de reserva:</label>
+      <input
+        type="datetime-local"
+        className="form-control"
+        {...register('reservationTime', { required: true })}
+      />
+
+      <label className="form-label mt-2">Nombre del cliente:</label>
+      <input
+        type="text"
+        className="form-control"
+        {...register('customerName', { required: true })}
+      />
+
+      <label className="form-label mt-2">Teléfono:</label>
+      <input
+        type="text"
+        className="form-control"
+        {...register('phone', { required: true })}
+      />
+
+      <input type="hidden" {...register('tableId')} value={tableId} />
+      <input
+        type="hidden"
+        {...register('createdAt')}
+        value={new Date().toISOString()}
+      />
+
+      <button type="submit" className="btn btn-success mt-3 w-100">
+        Guardar reserva
+      </button>
+    </form>
+  );
+};
