@@ -1,6 +1,6 @@
 import axios from "axios";
-import type { Table } from "./interfaces/table";
-import type { Reservation } from "./interfaces/reservation";
+import type { Table } from "./interfaces/table.interface";
+import type { Reservation } from "./interfaces/reservation.interface";
 
   const API_URL_Tables = 'https://localhost:44329/api/Tables';
 
@@ -31,6 +31,7 @@ export const updateTable = async (id: number, data: Table) => {
 export const getReservations = async () => {
   try {
     const resp = await axios.get(API_URL_Reservations);
+    console.log('Fetched reservations:', resp.data);
     return resp.data;
   } catch (error) {
     console.error(error);
@@ -41,6 +42,7 @@ export const getReservations = async () => {
 export const postReservation = async (reservation: Reservation) => {
   try {
     const resp = await axios.post(API_URL_Reservations, reservation);
+    console.log('Created reservation:', resp.data);
     return resp.data;
   } catch (error) {
     console.error(error);

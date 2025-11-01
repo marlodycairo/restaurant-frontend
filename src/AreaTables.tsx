@@ -3,37 +3,24 @@ import "./App.css";
 import "./AreaTables.css";
 import { getTables, updateTable, getReservations } from "./fetch.data";
 import { ReservationForm } from "./reservation-form";
-import type { Table } from "./interfaces/table";
-import type { Reservation } from "./interfaces/reservation";
+import type { Table } from "./interfaces/table.interface";
+import type { Reservation } from "./interfaces/reservation.interface";
 
 const visualStyles = {
   Disponible: {
-    cardClass: "border-success border-2 shadow-sm",
-    textClass: "text-success",
-    badgeClass: "bg-success-subtle text-success-emphasis",
-    badgeText: "Disponible",
-    statusClass: "status-available",
+    color: "#4CAF50",
+    label: "Disponible",
+    badge: "bg-success",
   },
-  ProximaReserva: {
-    cardClass: "bg-warning text-dark shadow-sm",
-    textClass: "text-dark",
-    badgeClass: "bg-light text-warning-emphasis",
-    badgeText: "Próxima Reserva",
-    statusClass: "status-upcoming",
-  },
-  ReservaActiva: {
-    cardClass: "bg-danger text-white shadow-sm",
-    textClass: "text-white",
-    badgeClass: "bg-light text-danger-emphasis",
-    badgeText: "Reservada (Activa)",
-    statusClass: "status-active",
+  Reservada: {
+    color: "#FF9800",
+    label: "Reservada",
+    badge: "bg-warning text-dark",
   },
   Ocupada: {
-    cardClass: "bg-secondary text-white shadow-sm",
-    textClass: "text-white",
-    badgeClass: "bg-light text-dark-emphasis",
-    badgeText: "Ocupada",
-    statusClass: "status-occupied",
+    color: "#F44336",
+    label: "Ocupada",
+    badge: "bg-danger",
   },
 };
 
@@ -44,58 +31,50 @@ export const AreaTables = () => {
   const [showReservationForm, setShowReservationForm] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [tablesData, reservationsData] = await Promise.all([
-          getTables(),
-          getReservations(),
-        ]);
-        setTables(tablesData);
-        setReservations(reservationsData);
-      } catch (error) {
-        console.error("Error cargando datos:", error);
-      }
-    };
-    loadData();
+  const loadData = useCallback(async () => {
+    try {
+      const [tablesData, reservationsData] = await Promise.all([
+        getTables(),
+        getReservations(),
+      ]);
+      setTables(tablesData);
+      setReservations(reservationsData);
+    } catch (error) {
+      console.error("Error cargando datos:", error);
+    }
   }, []);
 
-  // Actualiza el reloj cada minuto
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Determina el color de una mesa
   const getDynamicTableStyles = useCallback(
     (table: Table) => {
       const now = currentTime;
+
       const tableReservations = reservations.filter(
-        (r) => r.tableId === table.idTable
+        (r:Reservation) => r.tableId === table.idTable
       );
 
+      console.log('reservation: ', tableReservations);
+      console.log('table: ', table);
       let style = visualStyles.Disponible;
 
       for (const r of tableReservations) {
-        const resTime = new Date(r.reservationTime);
-        const diffMin = (resTime.getTime() - now.getTime()) / (1000 * 60);
+        const start = new Date(r.startTime);
+        const end = new Date(r.endTime);
 
-        console.log('current time: ', now);
-
-        console.log('reservation: ', r);
-        if (diffMin <= 0 && diffMin >= -60) {
-          // 🔴 dentro del rango de la reserva (ya empezó y dura 1h)
-          style = visualStyles.ReservaActiva;
+        if (now >= start && now <= end) {
+          style = visualStyles.Ocupada;
           break;
-        } else if (diffMin > 0 && diffMin <= 60) {
-          // 🟨 dentro de la próxima hora
-          style = visualStyles.ProximaReserva;
+        } else if (start > now && start <= new Date(now.getTime() + 60 * 60000)) {
+          style = visualStyles.Reservada;
         }
-      }
-
-      // Si está ocupada manualmente en la BD
-      if (table.tableStatus === 2) {
-        style = visualStyles.Ocupada;
       }
 
       return style;
@@ -105,9 +84,9 @@ export const AreaTables = () => {
 
   const tablesWithStyles = useMemo(
     () =>
-      tables.map((table) => ({
-        ...table,
-        visuals: getDynamicTableStyles(table),
+      tables.map((t) => ({
+        ...t,
+        visuals: getDynamicTableStyles(t),
       })),
     [tables, getDynamicTableStyles]
   );
@@ -130,67 +109,55 @@ export const AreaTables = () => {
       return;
     }
 
-    const updatedTableData = {
-      ...selectedTable,
-      tableStatus: newStatus,
-    };
-
-    try {
-      await updateTable(selectedTable.idTable, updatedTableData);
-      setTables((prev) =>
-        prev.map((t) =>
-          t.idTable === selectedTable.idTable ? updatedTableData : t
-        )
-      );
-      // Forzar un “tick” para recalcular estilos
-      setCurrentTime(new Date());
-      handleCloseModal();
-    } catch (error) {
-      console.error(error);
-    }
+    const updatedTableData = { ...selectedTable, tableStatus: newStatus };
+    await updateTable(selectedTable.idTable, updatedTableData);
+    setTables((prev) =>
+      prev.map((t) =>
+        t.idTable === selectedTable.idTable ? updatedTableData : t
+      )
+    );
+    handleCloseModal();
   };
 
-  const statusOptions = [
-    { id: 1, name: "Disponible", class: "btn-outline-success" },
-    { id: 2, name: "Ocupada", class: "btn-outline-danger" },
-    { id: 3, name: "Reservar", class: "btn-outline-warning" },
-  ];
-
   return (
-    <div className="container my-5">
-      <h2 className="text-center mb-4 fw-light">Plano de Mesas</h2>
+    <div className="container py-4">
+      <h2 className="text-center mb-4 fw-semibold text-primary">
+        🪑 Gestión de Mesas
+      </h2>
 
-      <div className="row g-4">
-        {tablesWithStyles.map((table) => {
-          const styles = table.visuals;
-          return (
-            <div className="col-lg-3 col-md-4 col-sm-6" key={table.idTable}>
-              <div
-                className={`card h-100 text-center ${styles.cardClass}`}
-                onClick={() => handleOpenModal(table)}
-              >
-                <div className="card-body d-flex flex-column justify-content-center">
-                  <h1 className={`display-3 fw-bold ${styles.textClass}`}>
-                    {table.tableNumber}
-                  </h1>
-                  <p className="card-text text-muted mb-2">
-                    Capacidad: {table.capacity} personas
-                  </p>
-                  <div>
-                    <span
-                      className={`badge rounded-pill ${styles.badgeClass}`}
-                    >
-                      {styles.badgeText}
-                    </span>
-                  </div>
-                </div>
+      <div className="row g-4 justify-content-center">
+        {tablesWithStyles.map((table) => (
+          <div
+            key={table.idTable}
+            className="col-lg-3 col-md-4 col-sm-6"
+            onClick={() => handleOpenModal(table)}
+          >
+            <div
+              className="card text-center shadow-sm"
+              style={{
+                border: `3px solid ${table.visuals.color}`,
+                transition: "transform 0.2s",
+              }}
+            >
+              <div className="card-body">
+                <h1
+                  className="display-4 fw-bold"
+                  style={{ color: table.visuals.color }}
+                >
+                  {table.tableNumber}
+                </h1>
+                <span className={`badge ${table.visuals.badge}`}>
+                  {table.visuals.label}
+                </span>
+                <p className="mt-2 text-muted">
+                  Capacidad: {table.capacity} personas
+                </p>
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
-      {/* --- MODAL --- */}
       {selectedTable && (
         <>
           <div className="modal-backdrop fade show"></div>
@@ -198,13 +165,12 @@ export const AreaTables = () => {
             className="modal fade show"
             style={{ display: "block" }}
             tabIndex={-1}
-            role="dialog"
           >
-            <div className="modal-dialog modal-dialog-centered" role="document">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title">
-                    Gestionar Mesa {selectedTable.tableNumber}
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content border-0 shadow-lg rounded-4">
+                <div className="modal-header bg-light">
+                  <h5 className="modal-title fw-semibold">
+                    Mesa {selectedTable.tableNumber}
                   </h5>
                   <button
                     type="button"
@@ -212,22 +178,29 @@ export const AreaTables = () => {
                     onClick={handleCloseModal}
                   ></button>
                 </div>
-
                 <div className="modal-body">
                   {!showReservationForm ? (
                     <>
-                      <p>Selecciona el nuevo estado para la mesa:</p>
+                      <p>Selecciona una acción:</p>
                       <div className="d-grid gap-2">
-                        {statusOptions.map((option) => (
-                          <button
-                            key={option.id}
-                            type="button"
-                            className={`btn ${option.class} btn-lg`}
-                            onClick={() => handleUpdateStatus(option.id)}
-                          >
-                            {option.name}
-                          </button>
-                        ))}
+                        <button
+                          className="btn btn-outline-success btn-lg"
+                          onClick={() => handleUpdateStatus(1)}
+                        >
+                          Disponible
+                        </button>
+                        <button
+                          className="btn btn-outline-danger btn-lg"
+                          onClick={() => handleUpdateStatus(2)}
+                        >
+                          Ocupada
+                        </button>
+                        <button
+                          className="btn btn-outline-warning btn-lg"
+                          onClick={() => handleUpdateStatus(3)}
+                        >
+                          Reservar
+                        </button>
                       </div>
                     </>
                   ) : (
@@ -239,16 +212,6 @@ export const AreaTables = () => {
                       }}
                     />
                   )}
-                </div>
-
-                <div className="modal-footer">
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={handleCloseModal}
-                  >
-                    Cerrar
-                  </button>
                 </div>
               </div>
             </div>

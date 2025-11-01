@@ -1,7 +1,8 @@
 export interface Reservation {
         id: number;
-        createdAt: Date;
-        reservationTime: Date;
+        createdAt: string;
+        startTime: string;
+        endTime: string;
         tableId: number;
         customerName: string;
         phone: string;
