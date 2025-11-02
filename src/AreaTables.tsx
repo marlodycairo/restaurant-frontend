@@ -61,8 +61,6 @@ export const AreaTables = () => {
         (r:Reservation) => r.tableId === table.idTable
       );
 
-      console.log('reservation: ', tableReservations);
-      console.log('table: ', table);
       let style = visualStyles.Disponible;
 
       for (const r of tableReservations) {
