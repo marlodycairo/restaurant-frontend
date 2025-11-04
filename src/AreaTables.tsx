@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import * as signalR from '@microsoft/signalr';
 import "./App.css";
 import "./AreaTables.css";
 import { getTables, updateTable, getReservations } from "./fetch.data";
@@ -45,9 +46,27 @@ export const AreaTables = () => {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 10000);
+    
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl('https://localhost:44329/hubs/Tables')  //  'https://localhost:44329/api/Tables'
+      .withAutomaticReconnect()
+      .build(); 
 
-    return () => clearInterval(interval);
+      connection
+        .start()
+        .then(() => {
+          console.log('Conectado al Hub de SignalR!');
+
+          connection.on('TablesUpdated', () => {
+            console.log('Actualización recibida desde el backend');
+            loadData();
+          });
+        })
+        .catch((err) => console.error("Error conectando a SignalR:", err))
+
+    return () => {
+      connection.stop();
+    }
   }, [loadData]);
 
   const tablesWithStyles = useMemo(() =>
