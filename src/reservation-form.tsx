@@ -23,8 +23,8 @@ export const ReservationForm: React.FC<Props> = ({ tableId, onCreated }) => {
   const { register, handleSubmit, reset, formState } = useForm<FormValues>({
     defaultValues: {
       date: new Date().toISOString().slice(0, 10), // today YYYY-MM-DD
-      startTime: now.toTimeString().slice(0, 5), // HH:mm,
-      endTime: oneHourLater.toTimeString().slice(0, 5), // HH:mm,
+      startTime: now.toISOString().slice(0, 5), // HH:mm,
+      endTime: oneHourLater.toISOString().slice(0, 5), // HH:mm,
       customerName: "",
       phone: "",
     },
