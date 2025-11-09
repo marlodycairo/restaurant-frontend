@@ -6,7 +6,8 @@ import { getTables, updateTable, getReservations } from "./fetch.data";
 import { ReservationForm } from "./reservation-form";
 import type { Table } from "./interfaces/table.interface";
 import type { Reservation } from "./interfaces/reservation.interface";
-import { Toast } from "bootstrap";
+// import { Toast } from "bootstrap";
+import { CurrentReservationsModal } from "./modals/current.reservations.modal";
 
 const visualStyles = {
   Available: {
@@ -31,7 +32,7 @@ export const AreaTables = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [showReservationsForm, setShowReservationsForm] = useState(false);
-  const toastRef = useRef<HTMLDivElement>(null);
+  // const toastRef = useRef<HTMLDivElement>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -46,26 +47,27 @@ export const AreaTables = () => {
     }
   }, []);
 
+  // signalR connection
   useEffect(() => {
     loadData();
-    
+
     const connection = new signalR.HubConnectionBuilder()
       .withUrl('https://localhost:44329/hubs/Tables')  //  'https://localhost:44329/api/Tables'
       .configureLogging(signalR.LogLevel.Information)
       .withAutomaticReconnect()
-      .build(); 
+      .build();
 
-      connection
-        .start()
-        .then(() => {
-          console.log('Conectado al Hub de SignalR!');
+    connection
+      .start()
+      .then(() => {
+        console.log('Conectado al Hub de SignalR!');
 
-          connection.on('TablesUpdated', () => {
-            console.log('Actualización recibida desde el backend');
-            loadData();
-          });
-        })
-        .catch((err) => console.error("Error conectando a SignalR:", err))
+        connection.on('TablesUpdated', () => {
+          console.log('Actualización recibida desde el backend');
+          loadData();
+        });
+      })
+      .catch((err) => console.error("Error conectando a SignalR:", err))
 
     return () => {
       connection.stop();
@@ -105,19 +107,19 @@ export const AreaTables = () => {
     }), [tables]
   );
 
-  const showToast = (message: string, type: "success" | "error" = "success") => {
-  const toastEl = toastRef.current;
-  if (toastEl) {
-    const toastBody = toastEl.querySelector(".toast-body") as HTMLElement;
-    toastBody.textContent = message;
+  //   const showToast = (message: string, type: "success" | "error" = "success") => {
+  //   const toastEl = toastRef.current;
+  //   if (toastEl) {
+  //     const toastBody = toastEl.querySelector(".toast-body") as HTMLElement;
+  //     toastBody.textContent = message;
 
-    // Colorear el cuerpo según tipo
-    toastBody.className = "toast-body " + (type === "success" ? "text-success" : "text-danger");
+  //     // Colorear el cuerpo según tipo
+  //     toastBody.className = "toast-body " + (type === "success" ? "text-success" : "text-danger");
 
-    const toast = new Toast(toastEl);
-    toast.show();
-  }
-};
+  //     const toast = new Toast(toastEl);
+  //     toast.show();
+  //   }
+  // };
 
   const handleOpenModal = (table: Table) => {
     setSelectedTable(table);
@@ -139,12 +141,12 @@ export const AreaTables = () => {
     try {
       const updatedTableData = { ...selectedTable, tableStatus: newStatus };
       await updateTable(selectedTable.idTable, updatedTableData);
-      setTables((prev) => prev.map((t) => 
-      t.idTable === selectedTable.idTable ? updatedTableData : t
+      setTables((prev) => prev.map((t) =>
+        t.idTable === selectedTable.idTable ? updatedTableData : t
       ));
-      showToast(`Mesa ${selectedTable.tableNumber} actualizada correctamente.`, "success");
+      // showToast(`Mesa ${selectedTable.tableNumber} actualizada correctamente.`, "success");
     } catch {
-      showToast(`Error actualizando la mesa ${selectedTable?.tableNumber}.`, "error")
+      // showToast(`Error actualizando la mesa ${selectedTable?.tableNumber}.`, "error")
     }
 
     handleCloseModal();
@@ -152,91 +154,33 @@ export const AreaTables = () => {
 
   return (
     <div className="container py-4">
-      {/* Toast Bootstrap */}
-      <div
-        className="toast position-fixed top-0 end-0 m-3"
-        role="alert"
-        aria-live="assertive"
-        aria-atomic="true"
-        ref={toastRef}
-        style={{ zIndex: 2000 }}
-        data-bs-delay="4000" data-bs-autohide="true"
-      >
-        <div className="toast-header">
-          <strong className="me-auto">Notificación</strong>
-          <small>Ahora</small>
-          <button
-            type="button"
-            className="btn-close"
-            data-bs-dismiss="toast"
-            aria-label="Close"
-          ></button>
-        </div>
-        <div className="toast-body"></div>
-      </div>
-
       <h2 className="text-center mb-4 fw-semibold text-primary">
         🍽️ Gestión de Mesas
       </h2>
-
       <div className="row g-4 justify-content-center">
         {tablesWithStyles.map((table) => (
-        <div key={table.idTable} className="col-lg-3 col-md-4 col-sm-6" onClick={() => handleOpenModal(table)}>
-          <div className="card text-center shadow-sm" 
-               style={{ border: `3px solid ${table.visualStyle}`, transition: 'transform 0.2s'}}>
-            <div className="card-body">
-              <h1 className="display-4 fw-bold" 
-              style={{ color: table.visualStyle}}>{table.tableNumber}</h1>
-              <span className={`badge ${table.visualBadge}`}>
+          <div key={table.idTable} className="col-lg-3 col-md-4 col-sm-6" onClick={() => handleOpenModal(table)}>
+            <div className="card text-center shadow-sm"
+              style={{ border: `3px solid ${table.visualStyle}`, transition: 'transform 0.2s' }}>
+              <div className="card-body">
+                <h1 className="display-4 fw-bold"
+                  style={{ color: table.visualStyle }}>{table.tableNumber}</h1>
+                <span className={`badge ${table.visualBadge}`}>
                   {table.visualLabel}</span>
-              <p className="mt-2 text-muted">Capacidad: {table.capacity} personas</p>
-            </div>
-          </div>
-        </div>
-        ))}
-      </div>
-      {/* Modal */}
-      {selectedTable && (
-        <>
-          <div className="modal-backdrop fade show"></div>
-          <div className="modal fade show" style={{ display: 'block'}} tabIndex={-1}>
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content border-0 shadow-lg rounded-4">
-                <div className="modal-header bg-light">
-                  <h5 className="modal-title fw-semibold">Mesa {selectedTable.tableNumber}</h5>
-                  <button type="button" className="btn-close" onClick={handleCloseModal}></button>
-                </div>
-                <div className="modal-body">
-                  {!showReservationsForm ? (
-                    <>
-                    <div>
-                      <button className="btn btn-outline-info btn-sm" >Ver reservas</button>
-                    </div>
-                      <p>Selecciona una acción: </p>
-                      <div className="d-grid gap-2">
-                        <button className="btn btn-outline-success btn-lg" onClick={() => handleUpdateStatus(1)}>Available</button>
-                        <button className="btn btn-outline-danger btn-lg" onClick={() => handleUpdateStatus(2)}>Assigned</button>
-                        <button className="btn btn-outline-warning btn-lg" onClick={() => handleUpdateStatus(3)}>Reserved</button>
-                      </div>
-                    </>
-                  ) : (
-                    <ReservationForm 
-                      tableId={selectedTable.idTable}
-                      onCreated={(newRes) => {
-                        setReservations((prev) => [...prev, newRes]);
-                        handleCloseModal();
-                        showToast(
-                          `Table ${selectedTable.tableNumber} Reserved to ${new Date(newRes.startTime).toLocaleString()}.`,
-                          "success"
-                        );
-                      }} />
-                  )}
-                </div>
+                <p className="mt-2 text-muted">Capacidad: {table.capacity} personas</p>
               </div>
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* Modal */}
+      {selectedTable && (
+        <>
+          <CurrentReservationsModal table={selectedTable} onClose={handleCloseModal} />
         </>
       )}
+
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import type { Table } from "./interfaces/table.interface";
 import type { Reservation } from "./interfaces/reservation.interface";
 import type { Product } from "./interfaces/product.interface";
@@ -67,7 +67,11 @@ export const getReservationsByTable = async (tableId: number) => {
     const resp = await axios.get(`${API_URL_Reservations}/byTable/${tableId}`);
     return resp.data;
   } catch (error) {
-    console.error(error);
+    const err = error as AxiosError;
+    if (err.response && err.response.status !== 200) {
+      return { error: err.response.data }; // texto: "No hay reservas para esta mesa."
+    }
+    return { error: "Error al obtener las reservas" };
   }
 }
 
@@ -75,7 +79,7 @@ export const postReservation = async (reservation: Reservation) => {
   console.log('post reservation: ', reservation);
   try {
     const resp = await axios.post(API_URL_Reservations, reservation);
-    console.log('resp post: ', resp.data);
+    console.log('resp post: ', resp);
     return resp.data;
   } catch (error) {
     console.error(error);

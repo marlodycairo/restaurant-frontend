@@ -13,14 +13,7 @@ export const Navbar = () => {
               `nav-link ${isActive ? "active" : ""}`
               } to="/">Tables</NavLink>
             </li>
-            <li className='nav-item'>
-              <NavLink 
-              className={({ isActive }) => 
-                `nav-link ${isActive ? "active" : ""}`
-                } 
-                to="/productsList">Products
-              </NavLink >
-            </li>
+            
           </ul>
         </div>
       </div>
