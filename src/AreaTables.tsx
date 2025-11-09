@@ -46,6 +46,7 @@ export const AreaTables = () => {
     }
   }, []);
 
+  // signalR connection
   useEffect(() => {
     loadData();
     
@@ -210,7 +211,34 @@ export const AreaTables = () => {
                   {!showReservationsForm ? (
                     <>
                     <div>
-                      <button className="btn btn-outline-info btn-sm" >Ver reservas</button>
+                      
+                      <table className="table table-bordered border-info">
+                        <thead>
+                          <tr>
+                          <th>No. reserva</th>
+                          <th>Cliente</th>
+                          <th>Fecha</th>
+                          <th>Action</th>
+                          <th>State</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                          {reservations.map(r => (
+                            <tr key={r.id}>
+                              <td>{r.id}</td>
+                              <td>{r.customerName}</td>
+                              <td>{r.startTime}</td>
+                              <td>
+                                <button>edit</button>
+                              </td>
+                              <td><label>
+                                  <input type="checkbox" />
+                                </label></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      
                     </div>
                       <p>Selecciona una acción: </p>
                       <div className="d-grid gap-2">
@@ -237,6 +265,7 @@ export const AreaTables = () => {
           </div>
         </>
       )}
+      
     </div>
   );
 };
