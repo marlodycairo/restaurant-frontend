@@ -177,7 +177,7 @@ export const AreaTables = () => {
       {/* Modal */}
       {selectedTable && (
         <>
-          <CurrentReservationsModal table={selectedTable} onClose={handleCloseModal} />
+          <CurrentReservationsModal table={selectedTable} onClose={handleCloseModal} updateStatus={handleUpdateStatus} />
         </>
       )}
 
