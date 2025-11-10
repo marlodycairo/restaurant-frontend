@@ -46,7 +46,7 @@ export const AreaTables = () => {
     }
   }, []);
 
-  // signalR connection
+  // signalR
   useEffect(() => {
     loadData();
     
@@ -210,36 +210,6 @@ export const AreaTables = () => {
                 <div className="modal-body">
                   {!showReservationsForm ? (
                     <>
-                    <div>
-                      
-                      <table className="table table-bordered border-info">
-                        <thead>
-                          <tr>
-                          <th>No. reserva</th>
-                          <th>Cliente</th>
-                          <th>Fecha</th>
-                          <th>Action</th>
-                          <th>State</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                          {reservations.map(r => (
-                            <tr key={r.id}>
-                              <td>{r.id}</td>
-                              <td>{r.customerName}</td>
-                              <td>{r.startTime}</td>
-                              <td>
-                                <button>edit</button>
-                              </td>
-                              <td><label>
-                                  <input type="checkbox" />
-                                </label></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      
-                    </div>
                       <p>Selecciona una acción: </p>
                       <div className="d-grid gap-2">
                         <button className="btn btn-outline-success btn-lg" onClick={() => handleUpdateStatus(1)}>Available</button>
