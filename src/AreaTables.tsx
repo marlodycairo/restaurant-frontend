@@ -175,9 +175,43 @@ export const AreaTables = () => {
       </div>
 
       {/* Modal */}
+      {/* Modal */}
       {selectedTable && (
         <>
-          <CurrentReservationsModal table={selectedTable} onClose={handleCloseModal} updateStatus={handleUpdateStatus} />
+          <div className="modal-backdrop fade show"></div>
+          <div className="modal fade show" style={{ display: 'block'}} tabIndex={-1}>
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content border-0 shadow-lg rounded-4">
+                <div className="modal-header bg-light">
+                  <h5 className="modal-title fw-semibold">Mesa {selectedTable.tableNumber}</h5>
+                  <button type="button" className="btn-close" onClick={handleCloseModal}></button>
+                </div>
+                <div className="modal-body">
+                  {!showReservationsForm ? (
+                    <>
+                      <p>Selecciona una acción: </p>
+                      <div className="d-grid gap-2">
+                        <button className="btn btn-outline-success btn-lg" onClick={() => handleUpdateStatus(1)}>Available</button>
+                        <button className="btn btn-outline-danger btn-lg" onClick={() => handleUpdateStatus(2)}>Assigned</button>
+                        <button className="btn btn-outline-warning btn-lg" onClick={() => handleUpdateStatus(3)}>Reserved</button>
+                      </div>
+                    </>
+                  ) : (
+                    <ReservationForm 
+                      tableId={selectedTable.idTable}
+                      onCreated={(newRes) => {
+                        setReservations((prev) => [...prev, newRes]);
+                        handleCloseModal();
+                        // showToast(
+                        //   `Table ${selectedTable.tableNumber} Reserved to ${new Date(newRes.startTime).toLocaleString()}.`,
+                        //   "success"
+                        // );
+                      }} />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </>
       )}
 
