@@ -1,13 +1,16 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState } from "react";
 import * as signalR from '@microsoft/signalr';
 import "./App.css";
 import "./AreaTables.css";
-import { getTables, updateTable, getReservations } from "./fetch.data";
-import { ReservationForm } from "./reservation-form";
-import type { Table } from "./interfaces/table.interface";
-import type { Reservation } from "./interfaces/reservation.interface";
-// import { Toast } from "bootstrap";
-import { CurrentReservationsModal } from "./modals/current.reservations.modal";
+import { getTables,  } from "./fetch.data";
+import type { Table } from './interfaces/table.interface';
+import { useNavigate } from "react-router";
+
+export interface TableVisual extends Table {
+  visualStyle: string;
+  visualLabel: string;
+  visualBadge: string;
+}
 
 const visualStyles = {
   Available: {
@@ -29,27 +32,10 @@ const visualStyles = {
 
 export const AreaTables = () => {
   const [tables, setTables] = useState<Table[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
-  const [showReservationsForm, setShowReservationsForm] = useState(false);
-  // const toastRef = useRef<HTMLDivElement>(null);
-
-  const loadData = useCallback(async () => {
-    try {
-      const [tablesData, reservationsData] = await Promise.all([
-        getTables(),
-        getReservations(),
-      ]);
-      setTables(tablesData);
-      setReservations(reservationsData);
-    } catch (error) {
-      console.error(error);
-    }
-  }, []);
+  const navigate = useNavigate();
 
   // signalR connection
   useEffect(() => {
-    loadData();
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl('https://localhost:44329/hubs/Tables')  //  'https://localhost:44329/api/Tables'
@@ -57,100 +43,102 @@ export const AreaTables = () => {
       .withAutomaticReconnect()
       .build();
 
-    connection
-      .start()
-      .then(() => {
-        console.log('Conectado al Hub de SignalR!');
+    const startConnection = async () => {
+      try {
+        await connection.start();
+        console.log("Conectado al Hub de SignalR");
 
-        connection.on('TablesUpdated', () => {
-          console.log('Actualización recibida desde el backend');
-          loadData();
+        // Subscripción al evento
+        const handler = () => {
+          console.log("Actualización recibida desde el backend");
+          // loadTables(); // si luego quieres recargar mesas
+        };
+
+        connection.on("TablesUpdated", handler);
+
+        // Log de reconexiones
+        connection.onreconnecting(() => {
+          console.warn("SignalR intentando reconectar...");
         });
-      })
-      .catch((err) => console.error("Error conectando a SignalR:", err))
+
+        connection.onreconnected(() => {
+          console.log("SignalR reconectado correctamente");
+        });
+
+        connection.onclose(() => {
+          console.warn("SignalR se ha cerrado");
+        });
+
+        // Cleanup
+        return () => {
+          connection.off("TablesUpdated", handler);
+          connection.stop();
+        };
+
+      } catch (error) {
+        console.error("Error conectando a SignalR:", error);
+      }
+    };
+
+    const cleanupPromise = startConnection();
 
     return () => {
-      connection.stop();
-    }
-  }, [loadData]);
+      // Si startConnection generó un cleanup, lo esperamos
+      cleanupPromise.then(cleanup => {
+        if (typeof cleanup === "function") cleanup();
+      });
+    };
+  }, []);
 
-  const tablesWithStyles = useMemo(() =>
-    tables.map((t) => {
-      let style, badgeClass, labelText;
-      switch (t.tableStatus) {
-        case 1:
-          style = visualStyles.Available.color;
-          badgeClass = visualStyles.Available.badge;
-          labelText = visualStyles.Available.label;
-          break;
-        case 2:
-          style = visualStyles.Assigned.color;
-          badgeClass = visualStyles.Assigned.badge;
-          labelText = visualStyles.Assigned.label;
-          break;
-        case 3:
-          style = visualStyles.Reserved.color;
-          badgeClass = visualStyles.Reserved.badge;
-          labelText = visualStyles.Reserved.label;
-          break;
-        default:
-          style = '#ccc';
-          badgeClass = 'bg-secondary';
-          labelText = 'Fuera de Servicio';
+  // recupera las mesas
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const tablesData = await getTables();
+        setTables(tablesData);
+      } catch (error) {
+        console.error(error);
       }
+    }
+
+    fetchData();
+  }, []);
+
+  const tablesStyles = (status: number) => {
+    switch (status) {
+      case 1:
+        return visualStyles.Available;
+      case 2:
+        return visualStyles.Assigned;
+      case 3:
+        return visualStyles.Reserved;
+      default:
+        return {
+          color: 'green',
+          label: 'Out of service',
+          badge: 'bg-secondary'
+        };
+    }
+  }
+
+  const getTablesStyles = () => {
+    const processedTables: TableVisual[] = tables.map((t) => {
+      const { color, label, badge } = tablesStyles(t.tableStatus);
+
       return {
         ...t,
-        visualStyle: style,
-        visualBadge: badgeClass,
-        visualLabel: labelText,
+        visualStyle: color,
+        visualLabel: label,
+        visualBadge: badge
       };
-    }), [tables]
-  );
+    });
 
-  //   const showToast = (message: string, type: "success" | "error" = "success") => {
-  //   const toastEl = toastRef.current;
-  //   if (toastEl) {
-  //     const toastBody = toastEl.querySelector(".toast-body") as HTMLElement;
-  //     toastBody.textContent = message;
-
-  //     // Colorear el cuerpo según tipo
-  //     toastBody.className = "toast-body " + (type === "success" ? "text-success" : "text-danger");
-
-  //     const toast = new Toast(toastEl);
-  //     toast.show();
-  //   }
-  // };
-
-  const handleOpenModal = (table: Table) => {
-    setSelectedTable(table);
-    setShowReservationsForm(false);
+    return processedTables;
   }
 
-  const handleCloseModal = () => {
-    setSelectedTable(null);
-    setShowReservationsForm(false);
-  }
-
-  const handleUpdateStatus = async (newStatus: number) => {
-    if (!selectedTable) return;
-    if (newStatus === 3) {
-      setShowReservationsForm(true);
-      return;
-    }
-
-    try {
-      const updatedTableData = { ...selectedTable, tableStatus: newStatus };
-      await updateTable(selectedTable.idTable, updatedTableData);
-      setTables((prev) => prev.map((t) =>
-        t.idTable === selectedTable.idTable ? updatedTableData : t
-      ));
-      // showToast(`Mesa ${selectedTable.tableNumber} actualizada correctamente.`, "success");
-    } catch {
-      // showToast(`Error actualizando la mesa ${selectedTable?.tableNumber}.`, "error")
-    }
-
-    handleCloseModal();
-  }
+  const handleReservationsByTable = (table: Table) => {
+    navigate(`/reservationDetailByTable/${table.idTable}`);
+  };
 
   return (
     <div className="container py-4">
@@ -158,63 +146,20 @@ export const AreaTables = () => {
         🍽️ Gestión de Mesas
       </h2>
       <div className="row g-4 justify-content-center">
-        {tablesWithStyles.map((table) => (
-          <div key={table.idTable} className="col-lg-3 col-md-4 col-sm-6" onClick={() => handleOpenModal(table)}>
-            <div className="card text-center shadow-sm"
-              style={{ border: `3px solid ${table.visualStyle}`, transition: 'transform 0.2s' }}>
+        {getTablesStyles().map((table) => (
+          <div key={table.idTable} className="col-lg-3 col-md-4 col-sm-6" >
+            <div className="card text-center shadow-sm" style={{ border: `3px solid ${table.visualStyle}`, transition: 'transform 0.2s' }}
+              onClick={() => handleReservationsByTable(table)}>
               <div className="card-body">
                 <h1 className="display-4 fw-bold"
-                  style={{ color: table.visualStyle }}>{table.tableNumber}</h1>
-                <span className={`badge ${table.visualBadge}`}>
-                  {table.visualLabel}</span>
-                <p className="mt-2 text-muted">Capacidad: {table.capacity} personas</p>
+                >{table.tableNumber}</h1>
+                <span className={`badge ${table.visualBadge}`} >{table.visualLabel}</span>
+                <p className="card-text mt-2 text-muted">Capacidad: {table.capacity} personas</p>
               </div>
             </div>
           </div>
         ))}
       </div>
-
-      {/* Modal */}
-      {/* Modal */}
-      {selectedTable && (
-        <>
-          <div className="modal-backdrop fade show"></div>
-          <div className="modal fade show" style={{ display: 'block'}} tabIndex={-1}>
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content border-0 shadow-lg rounded-4">
-                <div className="modal-header bg-light">
-                  <h5 className="modal-title fw-semibold">Mesa {selectedTable.tableNumber}</h5>
-                  <button type="button" className="btn-close" onClick={handleCloseModal}></button>
-                </div>
-                <div className="modal-body">
-                  {!showReservationsForm ? (
-                    <>
-                      <p>Selecciona una acción: </p>
-                      <div className="d-grid gap-2">
-                        <button className="btn btn-outline-success btn-lg" onClick={() => handleUpdateStatus(1)}>Available</button>
-                        <button className="btn btn-outline-danger btn-lg" onClick={() => handleUpdateStatus(2)}>Assigned</button>
-                        <button className="btn btn-outline-warning btn-lg" onClick={() => handleUpdateStatus(3)}>Reserved</button>
-                      </div>
-                    </>
-                  ) : (
-                    <ReservationForm 
-                      tableId={selectedTable.idTable}
-                      onCreated={(newRes) => {
-                        setReservations((prev) => [...prev, newRes]);
-                        handleCloseModal();
-                        // showToast(
-                        //   `Table ${selectedTable.tableNumber} Reserved to ${new Date(newRes.startTime).toLocaleString()}.`,
-                        //   "success"
-                        // );
-                      }} />
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
     </div>
   );
 };

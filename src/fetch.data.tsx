@@ -140,3 +140,93 @@ export const deleteProduct = async (id: number) => {
     console.error(error);
   }
 }
+
+/** 5. Flujo completo — Explicación de principio a fin
+
+Aquí tienes el flujo funcional totalmente integrado, paso por paso.
+
+Escenario:
+
+Una reserva está programada para las 3:00 PM. Son las 2:59 PM y la aplicación debe cambiar la mesa a “Reservada” automáticamente.
+
+1. El frontend carga la página
+
+React hace:
+
+GET /tables
+
+GET /reservations
+
+React se conecta al Hub:
+
+connection.start()
+
+connection.on("TablesUpdated", updateTables)
+
+2. La API responde con el estado actual
+
+Entrega lo que está en la base de datos.
+
+No predice futuros cambios (eso lo hace el background).
+
+3. Background Service ejecuta su ciclo
+
+Ejemplo: corre cada 1 minuto o cada 30 minutos (según tu configuración).
+
+¿Qué hace internamente?
+
+Obtiene now = DateTimeOffset.UtcNow.
+
+Carga todas las mesas con sus reservas.
+
+Para cada mesa:
+
+Revisa si existe una reserva activa:
+
+r.StartTime <= now && r.EndTime > now
+
+
+Si encuentra una reserva activa → Actualiza TableStatus.
+
+Si el estado cambió → lo guarda en la BD.
+
+Importante: el background no envia mesas sin cambios, solo cuando hay cambios reales.
+
+4. El Background detecta cambio
+
+Mesa 5 pasa de "Available" a "Reserved".
+
+Lo persiste.
+
+Luego envía por SignalR:
+
+await hub.Clients.All.SendAsync("TablesUpdated", updatedTables);
+
+5. SignalR Hub envía el evento a todas las conexiones activas
+
+No ejecuta lógica extra.
+
+No modifica base de datos.
+
+No calcula nada.
+
+Solo transmite.
+
+6. El frontend React recibe el evento
+
+El handler configurado se dispara:
+
+connection.on("TablesUpdated", (tables) => {
+    setTables(tables);
+});
+
+
+React:
+
+Actualiza el estado.
+
+Redibuja la UI inmediatamente.
+
+Sin recargar.
+
+Sin fetch adicional.*/
