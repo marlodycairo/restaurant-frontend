@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import * as signalR from '@microsoft/signalr';
 import "./App.css";
 import "./AreaTables.css";
+import { useQuery } from "@tanstack/react-query";
 import { getTables,  } from "./fetch.data";
 import type { Table } from './interfaces/table.interface';
 import { useNavigate } from "react-router";
@@ -31,7 +32,7 @@ const visualStyles = {
 };
 
 export const AreaTables = () => {
-  const [tables, setTables] = useState<Table[]>([]);
+  // const [tables, setTables] = useState<Table[]>([]);
   const navigate = useNavigate();
 
   // signalR connection
@@ -91,18 +92,11 @@ export const AreaTables = () => {
   }, []);
 
   // recupera las mesas
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const tablesData = await getTables();
-        setTables(tablesData);
-      } catch (error) {
-        console.error(error);
-      }
-    }
-
-    fetchData();
-  }, []);
+    const { data: tables, isLoading, error } = useQuery({
+      queryKey: ['tables'],
+      queryFn: getTables,
+      staleTime: 5 * 60 * 1000, //5 minutos
+    });
 
   const tablesStyles = (status: number) => {
     switch (status) {
@@ -122,7 +116,7 @@ export const AreaTables = () => {
   }
 
   const getTablesStyles = () => {
-    const processedTables: TableVisual[] = tables.map((t) => {
+    const processedTables: TableVisual[] = (tables ?? []).map((t: Table) => {
       const { color, label, badge } = tablesStyles(t.tableStatus);
 
       return {
@@ -139,6 +133,10 @@ export const AreaTables = () => {
   const handleReservationsByTable = (table: Table) => {
     navigate(`/reservationDetailByTable/${table.idTable}`);
   };
+
+  if (isLoading) return <p>Cargando mesas...</p>;
+  if (error) return <p>Error cargando mesas...</p>
+  if (!tables || tables.length === 0) return <p>No hay mesas</p>
 
   return (
     <div className="container py-4">
