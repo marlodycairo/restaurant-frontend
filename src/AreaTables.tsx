@@ -1,11 +1,11 @@
-import { useEffect } from "react";
 import * as signalR from '@microsoft/signalr';
 import "./App.css";
 import "./AreaTables.css";
-import { useQuery } from "@tanstack/react-query";
-import { getTables,  } from "./fetch.data";
+import { tableService, reservationService } from './services/index';
 import type { Table } from './interfaces/table.interface';
-import { useNavigate } from "react-router";
+import type { Reservation } from './interfaces/reservation.interface';
+import { useState, useEffect } from "react";
+import React from 'react';
 
 export interface TableVisual extends Table {
   visualStyle: string;
@@ -32,8 +32,42 @@ const visualStyles = {
 };
 
 export const AreaTables = () => {
-  // const [tables, setTables] = useState<Table[]>([]);
-  const navigate = useNavigate();
+
+  const [tables, setTables] = useState<Table[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState<Reservation>({
+    id: 0,
+    customerName: '',
+    phone: '',
+    startTime: '',
+    endTime: '',
+    tableId: 0,
+    createdAt: ''
+  });
+
+  // recupera las mesas y las reservaciones
+  useEffect(() => {
+    const loadData = async () => {
+      const today = new Date().toISOString().split("T")[0];
+      try {
+        const [dataTables, dataReservations] = await Promise.all([
+          tableService.getAll(),
+          reservationService.getAll({ startDate: today, endDate: today, })
+        ]);
+        console.log("Mesas cargadas:", dataTables);
+        console.log("Reservas cargadas:", dataReservations);
+
+        setTables(dataTables.tables ?? []);
+        setReservations(dataReservations.reservations ?? []);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    loadData();
+  }, []);
 
   // signalR connection
   useEffect(() => {
@@ -91,13 +125,7 @@ export const AreaTables = () => {
     };
   }, []);
 
-  // recupera las mesas
-    const { data: tables, isLoading, error } = useQuery({
-      queryKey: ['tables'],
-      queryFn: getTables,
-      staleTime: 5 * 60 * 1000, //5 minutos
-    });
-
+  // estilos para las mesas
   const tablesStyles = (status: number) => {
     switch (status) {
       case 1:
@@ -115,9 +143,10 @@ export const AreaTables = () => {
     }
   }
 
+  // recupera las mesas con sus estilos
   const getTablesStyles = () => {
-    const processedTables: TableVisual[] = (tables ?? []).map((t: Table) => {
-      const { color, label, badge } = tablesStyles(t.tableStatus);
+    const processedTables: TableVisual[] = (tables ?? []).map((t) => {
+      const { color, label, badge } = tablesStyles(t.status);
 
       return {
         ...t,
@@ -130,34 +159,224 @@ export const AreaTables = () => {
     return processedTables;
   }
 
-  const handleReservationsByTable = (table: Table) => {
-    navigate(`/reservationDetailByTable/${table.idTable}`);
+  const openModal = () => {
+    setShowModal(true);
+  }
+
+  const closeModal = () => {
+    setShowModal(false);
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  if (isLoading) return <p>Cargando mesas...</p>;
-  if (error) return <p>Error cargando mesas...</p>
-  if (!tables || tables.length === 0) return <p>No hay mesas</p>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const today = new Date().toISOString().split("T")[0];
+
+    const payload = {
+      ...formData,
+      createdAt: new Date().toISOString(),
+      startTime: `${today}T${formData.startTime}:00`,
+      endTime: `${today}T${formData.endTime}:00`,
+    };
+
+    try {
+      if (editingReservation) {
+        // ✅ Si hay reserva en edición, usamos update
+        await reservationService.update(editingReservation.id, payload);
+
+        // Actualizamos la lista en el frontend
+        setReservations(prev =>
+          prev.map(r => (r.id === editingReservation.id ? { ...r, ...payload } : r))
+        );
+      } else {
+        // ✅ Si no hay reserva en edición, creamos nueva
+        await reservationService.create(payload);
+
+        // Recargar reservas del día
+        const data = await reservationService.getAll({ startDate: today, endDate: today });
+        setReservations(data.reservations ?? []);
+      }
+
+      // Limpiar estado del modal
+      closeModal();
+      setEditingReservation(null);
+      setFormData({
+        id: 0,
+        customerName: '',
+        phone: '',
+        startTime: '',
+        endTime: '',
+        tableId: 0,
+        createdAt: ''
+      });
+
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+
+  const handleEditReservation = (reservation: Reservation) => {
+    setEditingReservation(reservation);
+    setFormData({
+      ...reservation,
+      startTime: reservation.startTime.split("T")[1].slice(0, 5), // HH:mm
+      endTime: reservation.endTime.split("T")[1].slice(0, 5)
+    });
+    openModal();
+  };
+
+
+  const handleDeleteReservation = async (id: number) => {
+    try {
+      await tableService.delete(id);
+      setReservations(prev => prev.filter(r => r.id !== id));
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   return (
-    <div className="container py-4">
-      <h2 className="text-center mb-4 fw-semibold text-primary">
-        🍽️ Gestión de Mesas
-      </h2>
-      <div className="row g-4 justify-content-center">
-        {getTablesStyles().map((table) => (
-          <div key={table.idTable} className="col-lg-3 col-md-4 col-sm-6" >
-            <div className="card text-center shadow-sm" style={{ border: `3px solid ${table.visualStyle}`, transition: 'transform 0.2s' }}
-              onClick={() => handleReservationsByTable(table)}>
-              <div className="card-body">
-                <h1 className="display-4 fw-bold"
-                >{table.tableNumber}</h1>
-                <span className={`badge ${table.visualBadge}`} >{table.visualLabel}</span>
-                <p className="card-text mt-2 text-muted">Capacidad: {table.capacity} personas</p>
+    <div className="app-root d-flex">
+      {/* MAIN */}
+      <main className="main-content p-4">
+        <header className="d-flex justify-content-between align-items-start mb-4">
+          <div className='text-center mb-4 col-10'>
+            <h2 className="fw-bold">Restaurant Control Panel</h2>
+            <small className="text-muted">Vista estado de las reservas</small>
+          </div>
+          <div>
+            <button className="btn btn-outline-primary" onClick={openModal} >Nueva reserva</button>
+          </div>
+        </header>
+        {/* RESERVAS */}
+        <div>
+          <div>
+            <h2 className='text-center display-5'>Reservaciones</h2>
+          </div>
+          {/* TABLA FILTRADA */}
+          {reservations.length === 0 && (
+            <p className='alert alert-warning text-center fw-bolder' style={{ fontSize: '20px' }} >
+              No hay reservas para mostrar!
+            </p>
+          )}
+          <table className='table table-bordered'>
+            <thead>
+              <tr className='text-center'>
+                <th># reserva</th>
+                <th># mesa</th>
+                <th>Asignado a</th>
+                <th>Fecha - Hora</th>
+                <th>Hasta</th>
+                <th>Options</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reservations.map(r => (
+                <tr>
+                  <td>{r.id}</td>
+                  <td>{r.tableId}</td>
+                  <td>{r.customerName}</td>
+                  <td>{r.startTime}</td>
+                  <td>{r.endTime}</td>
+                  <td className='text-center'>
+                    <button className='btn btn-warning btn-sm m-auto mx-3' onClick={() => handleEditReservation(r)} >Modificar</button>
+                    <button className='btn btn-danger btn-sm' onClick={() => handleDeleteReservation(r.id)} >Cancelar</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+
+
+        </div>
+        {/* TABLE GRID */}
+        <section>
+          <div className="row g-3">
+            {getTablesStyles().map((t) => (
+              <div key={t.id} className="col-xl-3 col-lg-4 col-md-6">
+                <div className="card table-card h-100 p-3" style={{ border: `3px solid ${t.visualStyle}`, transition: 'transform 0.2s' }}>
+                  <div className="d-flex justify-content-between align-items-start">
+                    <div>
+                      <div className="table-number fw-bold">Mesa {t.number}</div>
+                      <span className={`badge ${t.visualBadge} bg- status-badge`}>{t.visualLabel}</span>
+                      <div className="text-muted small"> Capacidad {t.capacity}</div>
+                    </div>
+                    <span className={`badge ${t.visualBadge} bg- status-badge`}></span>
+                  </div>
+                  <div className="mt-3 d-flex justify-content-between align-items-end">
+                    <div className="text-muted small">Últ. actualización: —</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+        {/* MODAL DE NUEVA RESERVA */}
+        {showModal && (
+          <div className='modal fade show d-block' tabIndex={-1} role='dialog' style={{ background: "rgba(0, 0, 0, .45)" }}>
+            <div className='modal-dialog modal-dialog-centered'>
+              <div className='modal-content'>
+                <form onSubmit={handleSubmit} >
+                  <div className='modal-header'>
+                    <h5 className='modal-title'>{editingReservation ? "Editar reserva" : "Nueva reserva"}</h5>
+                    <button className='btn-close' onClick={closeModal}></button>
+                  </div>
+                  <div className='modal-body'>
+                    <div className='mb-3'>
+                      <label className='form-label fw-semibold'>Titular reservación</label>
+                      <input type="text" name='customerName' className='form-control' placeholder='Nombre del cliente' value={formData.customerName} onChange={handleChange} required />
+                    </div>
+                    <div className='mb-3'>
+                      <label className='form-label fw-semibold'>Telefono</label>
+                      <input type="text" name='phone' className='form-control' placeholder='Telefono del cliente' value={formData.phone} onChange={handleChange} required />
+                    </div>
+                    <div className='mb-3'>
+                      <label className='form-label fw-semibold'>Fecha</label>
+                      <input type="date" name='createdAt' className='form-control' value={formData.createdAt} onChange={handleChange} required />
+                    </div>
+                    <div className='mb-3'>
+                      <label className='form-label fw-semibold'>Reserva desde</label>
+                      <input type="time" name='startTime' className='form-control' value={formData.startTime} onChange={handleChange} required />
+                    </div>
+                    <div className='mb-3'>
+                      <label className='form-label fw-semibold'>Reserva hasta</label>
+                      <input type="time" name='endTime' className='form-control' value={formData.endTime} onChange={handleChange} required />
+                    </div>
+                    <div className='mb-3'>
+                      <label className='form-label fw-semibold'>Mesa</label>
+                      <select className='form-select' name='tableId' value={formData.tableId} onChange={handleChange} required >
+                        <option value="">Elegir mesa</option>
+                        {tables.map(t => (
+                          <option key={t.id} value={t.id}>{t.number}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                  </div>
+                  <div className='modal-footer'>
+                    <button className='btn btn-secondary' onClick={closeModal}>Cancelar</button>
+                    <button type='submit' className='btn btn-primary'>Guardar</button>
+                  </div>
+
+
+                </form>
               </div>
             </div>
           </div>
-        ))}
-      </div>
+        )}
+      </main>
     </div>
   );
 };
+

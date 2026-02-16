@@ -46,24 +46,23 @@ export const ReservationForm: React.FC<Props> = ({ tableId, onCreated }) => {
       }
 
       // Construir payload en el formato que .NET espera (ISO 8601)
-      const payload: Reservation = {
-        // id se asigna en el servidor
-        createdAt: new Date().toISOString(),
+      const payload: Omit<Reservation, 'id'> = {
+        customerName: data.customerName,
+        phone: data.phone,
         startTime: start.toISOString(), // ISO 8601
         endTime: end.toISOString(),     // ISO 8601
         tableId: tableId,
-        customerName: data.customerName,
-        phone: data.phone,
+        createdAt: new Date().toISOString(),
       };
 
       console.log("Payload enviado:", payload);
-      const created = await postReservation(payload);
-      console.log("Respuesta del servidor:", created);
-      onCreated(created);
+      const created = await postReservation(payload as Reservation);
+      if (created) {
+        onCreated(created);
+      }
       reset();
     } catch (err) {
       console.error("Error creando reserva:", err);
-      alert("Error creando la reserva. Revisa consola.");
     }
   };
 
